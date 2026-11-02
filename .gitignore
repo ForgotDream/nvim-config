@@ -1,0 +1,9 @@
+*.swp
+*.swo
+*~
+.DS_Store
+*.log
+.testcases/
+.agents/
+.aws/
+.codex/
