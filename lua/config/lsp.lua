@@ -61,12 +61,35 @@ vim.keymap.set("n", "]d", function()
 end, { desc = "下一条诊断" })
 vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "诊断列表" })
 
-vim.lsp.config("clangd", {
-  cmd = { "clangd", "--background-index", "--completion-style=detailed", "--header-insertion=never" },
+vim.lsp.config("clice", {
+  cmd = { "clice", "serve" },
+  cmd_env = { CLICE_LOG_LEVEL = "warn" },
   filetypes = { "cpp" },
-  root_markers = { ".clangd", "compile_commands.json", "compile_flags.txt", ".git" },
-  -- 单文件竞赛无需 compile_commands.json；项目编译数据库优先。
-  init_options = { fallbackFlags = { "-std=c++23", "-Wall", "-Wextra" } },
+  root_dir = function(bufnr, on_dir)
+    local root = vim.fs.root(bufnr, function(name, path)
+      return name == "clice.toml" or name == "compile_commands.json" or name == ".git"
+        or (name == ".clice" and vim.uv.fs_stat(path .. "/.clice/config.toml") ~= nil)
+    end)
+    on_dir(root or vim.fs.dirname(vim.api.nvim_buf_get_name(bufnr)))
+  end,
+  before_init = function(params, config)
+    local root = config.root_dir
+    -- 编辑器 rules 会替换项目规则；有配置或编译数据库时完全交由项目决定。
+    if vim.uv.fs_stat(root .. "/clice.toml") or vim.uv.fs_stat(root .. "/.clice/config.toml") then
+      return
+    end
+    if vim.uv.fs_stat(root .. "/compile_commands.json") then
+      return
+    end
+    for name, kind in vim.fs.dir(root) do
+      if kind == "directory" and vim.uv.fs_stat(root .. "/" .. name .. "/compile_commands.json") then
+        return
+      end
+    end
+    params.initializationOptions = {
+      rules = { { default_command = { "g++", "-std=c++23", "-Wall", "-Wextra" } } },
+    }
+  end,
 })
 
 vim.lsp.config("tinymist", {
@@ -81,7 +104,7 @@ vim.lsp.config("tinymist", {
 })
 
 -- 缺少某个服务器时，其他功能仍然可以使用。
-for name, ft in pairs({ clangd = "cpp", tinymist = "typst" }) do
+for name, ft in pairs({ clice = "cpp", tinymist = "typst" }) do
   if vim.fn.executable(name) == 1 then
     vim.lsp.enable(name)
   else

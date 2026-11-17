@@ -17,7 +17,7 @@ Git 使用 Gitsigns，状态栏使用 Lualine，并与 Everforest 配色保持�
 | --- | --- |
 | `git` | 首次下载插件 |
 | `g++` | 编译 C++17，模板使用 GNU 的 `bits/stdc++.h` |
-| `clangd` | C++ 补全、诊断、跳转、重命名和格式化 |
+| `clice`（1.0+） | C++ 补全、诊断、跳转、重命名和格式化 |
 | `tinymist` | Typst 语言服务、内置 typstyle 格式化、保存时导出 PDF |
 | `curl` | Typst 预览插件下载缺失的辅助程序 |
 | `websocat`（可选） | 预览通信；未安装时由预览插件首次启动时下载 |
@@ -29,10 +29,12 @@ Git 使用 Gitsigns，状态栏使用 Lualine，并与 Everforest 配色保持�
 插件安装好之后，C++ 编辑和本地测试可离线使用。
 GitHub 不可达时会提示下载失败，内置编辑和已安装的 LSP 仍可使用。
 
-语言服务器需自行安装，可使用系统包管理器，或从
-[clangd](https://clangd.llvm.org/installation) 和
-[Tinymist Releases](https://github.com/Myriad-Dreamin/tinymist/releases) 获取。
-本配置不自动安装语言服务器。安装后重启 Neovim。
+语言服务器由用户通过系统包管理器安装并加入 `PATH`，本配置不自动安装。安装后重启 Neovim。
+原生 `vim.lsp` 负责 C++（clice 1.0+）与 Typst（Tinymist）配置，无需 nvim-lspconfig，也不会同时启动 clangd。
+其他语言尚未接入 LSP；安装服务器后，仍需在 `lua/config/lsp.lua` 中添加对应配置并启用。
+
+也可以继续使用系统包管理器，或从 [clice Releases](https://github.com/clice-io/clice/releases) 和 [Tinymist Releases](https://github.com/Myriad-Dreamin/tinymist/releases) 获取。
+手动安装 clice 时需保留发布包的 `bin/` 与 `lib/clang/` 相对布局，将其 `bin/` 加入 `PATH`，不要只复制可执行文件。
 
 ## 常用按键
 
@@ -208,9 +210,12 @@ Java 按文件名运行同名主类，例如 `Main.java` 对应 `public class Ma
 停止接收使用 `:CompetiTest receive stop`。
 不安装扩展也可手动添加、运行本地用例。
 
-独立 `.cpp` 文件默认以 C++17 提供 LSP，无需额外项目文件。
-有 `compile_commands.json` / `compile_flags.txt` 时，clangd 优先使用项目编译参数。
-修改竞赛使用的语言标准时，也请同步调整 `lua/config/lsp.lua` 的 `fallbackFlags`。
+没有 clice 项目配置或编译数据库时，独立 `.cpp` 文件的 LSP 默认使用 `g++ -std=c++23 -Wall -Wextra`，以文件所在目录作为工作区，无需额外项目文件；CompetiTest 的实际编译仍使用上文的 C++17。
+有 `compile_commands.json` 时，clice 优先使用数据库中的编译参数，自动查找项目根目录及其直接子目录中的数据库。
+clice 不读取 `.clangd` 或 `compile_flags.txt`；自定义参数请迁移到 `compile_commands.json` 或项目根目录的 `clice.toml`（也支持 `.clice/config.toml`）。
+检测到项目的 clice 配置、根目录或直接子目录中的编译数据库时，编辑器不注入默认规则，以免覆盖项目设置或干扰数据库发现；没有数据库条目的文件可在项目规则中设置 `default_command`。
+修改单文件 LSP 的默认语言标准时，请调整 `lua/config/lsp.lua` 中的 `default_command`；修改实际编译标准则调整 `lua/config/plugins.lua` 的 CompetiTest 参数。
+项目 clice 配置在服务器启动时读取，修改后重启 Neovim；配置参考见 [clice 配置指南](https://docs.clice.io/clice/guide/config-guide)。
 如果使用 `freopen`，本地测试时请禁用文件重定向，否则 CompetiTest 无法通过 stdin/stdout 测试。
 
 ## Typst
@@ -249,7 +254,7 @@ Tinymist 多文件主入口的固定方式参阅其官方文档。
 
 `:checkhealth vim.lsp` 检查语言服务，`:checkhealth lazy` 检查插件管理器。
 `:messages` 查看错误，`:lua vim.print(vim.lsp.get_clients({bufnr = 0}))` 查看当前文件连接的服务器。
-启动之后若没有补全，先检查 `:set filetype?`，再确认 `:echo executable('clangd')` 或
+启动之后若没有补全，先检查 `:set filetype?`，再确认 `:echo executable('clice')` 或
 `:echo executable('tinymist')` 返回 `1`。
 
 参考：[Neovim LSP](https://neovim.io/doc/user/lsp.html)、
